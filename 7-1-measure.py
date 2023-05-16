@@ -1,6 +1,6 @@
 import RPi.GPIO as gpio
 import time
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 
 gpio.setmode(gpio.BCM)
 
@@ -12,16 +12,16 @@ gpio.setup(dac, gpio.OUT, initial=gpio.HIGH)
 
 comp=4
 troyka=17 
-gpio.setup(troyka,gpio.OUT, initial=gpio.HIGH)
+gpio.setup(troyka,gpio.OUT)
+gpio.output(17, 0)
 gpio.setup(comp, gpio.IN)
 
-#снятие показаний с тройки
 def adc():
     k=0
     for i in range(7, -1, -1):
         k+=2**i
         gpio.output(dac, perev(k))
-        time.sleep(0.005)
+        time.sleep(0.001)
         if gpio.input(comp)==0:
             k-=2**i
     return k
@@ -32,27 +32,27 @@ def perev(a):
 
 try:
     napr=0
-    result_ismer=[]
-    time_start=time.time()
+    results=[]
+    time_start = time.time()
     count=0
 
-    #зарядка конденсатора, запис показаний в процессе
+    #зарядка конденсатора, запись показаний в процессе
     print('начало зарядки конденсатора')
-    while napr<256*0.25:
+    while napr<155:
         napr=adc()
-        result_ismer.append(napr)
-        time.sleep(0)
+        print(napr, 'зарядка')
+        results.append(napr)
         count+=1
         gpio.output(leds, perev(napr))
 
-    gpio.setup(troyka,gpio.OUT, initial=gpio.LOW)
+    gpio.output(17, 1)
 
     #разрядка конденсатора, запис показаний в процессе
     print('начало разрядки конденсатора')
-    while napr>256*0.02:
+    while napr>60:
         napr=adc()
-        result_ismer.append(napr)
-        time.sleep(0)
+        print(napr, 'разрядка')
+        results.append(napr)
         count+=1
         gpio.output(leds, perev(napr))
 
@@ -61,7 +61,7 @@ try:
     #запись данных в файлы
     print('запись данных в файл')
     with open('data.txt', 'w') as f:
-        for i in result_ismer:
+        for i in results:
             f.write(str(i) + '\n')
     with open('settings.txt', 'w') as f:
         f.write(str(1/time_experiment/count) + '\n')
@@ -71,12 +71,12 @@ try:
 
     #графики
     print('построение графиков')
-    y=[i/256*3.3 for i in result_ismer]
-    x=[i*time_experiment/count for i in range(len(result_ismer))]
-    pyplot.plot(x, y)
-    pyplot.xlabel('время')
-    pyplot.ylabel('вольтаж')
-    pyplot.show()
+    y=[i/256*3.3 for i in results]
+    x=[i*time_experiment/count for i in range(len(results))]
+    plt.plot(x, y)
+    plt.xlabel('время')
+    plt.ylabel('вольтаж')
+    plt.show()
 
 finally:
     gpio.output(leds, 0)
